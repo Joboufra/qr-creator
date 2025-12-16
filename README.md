@@ -61,8 +61,6 @@ npm run dev
 - `app/` FastAPI y rutas (`/api/qr`)
 - `frontend/` Next.js + Tailwind (UI moderna)
 
-## Capturas (ejemplo)
-- Pantalla principal: muestra formulario con opciones de formato, corrección, colores y preview animada.
-- Botón de descarga: botón con ícono para descargar el QR generado.
+## Captura
+<img width="2099" height="1262" alt="image" src="https://github.com/user-attachments/assets/0b921fed-7f7b-47b3-8949-a6ab5059961f" />
 
-_(Adjunta tus propias capturas tras ejecutar `npm run dev` y `uvicorn app.main:app --reload`)._

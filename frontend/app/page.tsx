@@ -337,8 +337,7 @@ export default function Page() {
           </div>
         </div>
       </div>
-      <footer className="pt-6 text-center text-sm text-zinc-500 space-y-2">
-        <div>Jose Boullosa | 2025</div>
+      <footer className="pt-12 text-center text-sm text-zinc-500 space-y-4">
         <div className="flex items-center justify-center gap-4 text-xs text-zinc-400">
           <a
             href="https://github.com/joboufra"
@@ -382,6 +381,7 @@ export default function Page() {
             LinkedIn
           </a>
         </div>
+        <div className="text-sm text-zinc-400">Jose Boullosa | 2025</div>
       </footer>
     </main>
   );

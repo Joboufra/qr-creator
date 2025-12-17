@@ -139,6 +139,20 @@ jobs:
             --exclude '.venv/' \
             "$GITHUB_WORKSPACE"/ "$DEPLOY_DIR"/
 
+      - name: Escribir .env.frontend para pm2
+        env:
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+          FRONTEND_PORT: ${{ vars.FRONTEND_PORT || '4000' }}
+        run: |
+          if [ -z "$DEPLOY_DIR" ]; then
+            echo "Falta definir secrets.DEPLOY_DIR" >&2
+            exit 1
+          fi
+          mkdir -p "$DEPLOY_DIR"
+          cat <<'EOF' > "$DEPLOY_DIR/.env.frontend"
+          PORT=${FRONTEND_PORT}
+          EOF
+
       - name: Volver a desplegar frontend
         env:
           FRONTEND_PM2_APP: ${{ secrets.FRONTEND_PM2_APP }}

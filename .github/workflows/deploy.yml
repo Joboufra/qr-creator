@@ -64,15 +64,16 @@ jobs:
             echo "Falta definir secrets.DEPLOY_DIR" >&2
             exit 1
           fi
-          cat <<'EOF' > "$DEPLOY_DIR/.env"
+          cat <<EOF > "$DEPLOY_DIR/.env"
           QR_API_KEY=${{ secrets.QR_API_KEY }}
           QR_RATE_LIMIT=${{ vars.QR_RATE_LIMIT || '60' }}
           QR_RATE_WINDOW=${{ vars.QR_RATE_WINDOW || '60' }}
           NEXT_PUBLIC_API_BASE=${{ secrets.NEXT_PUBLIC_API_BASE }}
-          UVICORN_HOST=${{ secrets.UVICORN_HOST || '0.0.0.0' }}
-          UVICORN_PORT=${{ secrets.UVICORN_PORT || '8000' }}
+          UVICORN_HOST=${{ secrets.UVICORN_HOST || vars.UVICORN_HOST || '0.0.0.0' }}
+          UVICORN_PORT=${{ secrets.UVICORN_PORT || vars.UVICORN_PORT || '8000' }}
           UVICORN_WORKERS=${{ vars.UVICORN_WORKERS || '2' }}
           EOF
+          stat "$DEPLOY_DIR/.env"
 
       - name: Instalar deps en deploy (backend)
         env:

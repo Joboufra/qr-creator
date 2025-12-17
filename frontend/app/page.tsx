@@ -164,7 +164,7 @@ export default function Page() {
     <main className="max-w-7xl mx-auto px-6 py-10 space-y-6 min-h-screen lg:overflow-visible">
       <header className="space-y-3">
         <p className="text-xs uppercase tracking-[0.35em] text-zinc-400">Joboufra: QR Creator</p>
-        <h1 className="text-4xl sm:text-5xl font-semibold font-display bg-gradient-to-r from-white via-rose-200 to-orange-200 bg-clip-text text-transparent drop-shadow-[0_6px_40px_rgba(239,68,68,0.25)]">
+        <h1 className="text-4xl sm:text-5xl font-semibold font-display tracking-tight bg-gradient-to-r from-sky-200 via-indigo-200 to-rose-200 bg-clip-text text-transparent drop-shadow-[0_8px_48px_rgba(14,165,233,0.35)]">
           Generador de QRs
         </h1>
         <p className="text-zinc-300 max-w-2xl">Ajusta formato, estilo y colores para crear tu QR al vuelo.</p>

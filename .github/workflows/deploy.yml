@@ -14,7 +14,6 @@ concurrency:
 jobs:
   backend:
     name: Backend (FastAPI)
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: self-hosted
     steps:
       - name: Checkout
@@ -53,6 +52,17 @@ jobs:
           print("Loaded routes:", len(list(app.router.routes)))
           PY
 
+      - name: Sincronizar workspace a deploy
+        env:
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+        run: |
+          if [ -z "$DEPLOY_DIR" ]; then
+            echo "Falta definir secrets.DEPLOY_DIR" >&2
+            exit 1
+          fi
+          mkdir -p "$DEPLOY_DIR"
+          rsync -avh --delete "$GITHUB_WORKSPACE"/ "$DEPLOY_DIR"/
+
       - name: Disparar deploy backend
         env:
           BACKEND_DEPLOY_FLAG_PATH: ${{ secrets.BACKEND_DEPLOY_FLAG_PATH }}
@@ -65,7 +75,7 @@ jobs:
 
   frontend:
     name: Frontend (Next.js)
-    if: github.ref == 'refs/heads/dev' || github.event_name == 'workflow_dispatch'
+    needs: backend
     runs-on: self-hosted
     steps:
       - name: Checkout
@@ -90,6 +100,17 @@ jobs:
           NEXT_PUBLIC_API_BASE: ${{ secrets.NEXT_PUBLIC_API_BASE }}
           NEXT_PUBLIC_API_KEY: ${{ secrets.NEXT_PUBLIC_API_KEY }}
         run: npm run build --if-present
+
+      - name: Sincronizar workspace a deploy
+        env:
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+        run: |
+          if [ -z "$DEPLOY_DIR" ]; then
+            echo "Falta definir secrets.DEPLOY_DIR" >&2
+            exit 1
+          fi
+          mkdir -p "$DEPLOY_DIR"
+          rsync -avh --delete "$GITHUB_WORKSPACE"/ "$DEPLOY_DIR"/
 
       - name: Volver a desplegar frontend
         env:

@@ -77,10 +77,16 @@ jobs:
             exit 1
           fi
           cd "$DEPLOY_DIR"
-          python -m venv .venv
+          PY_BIN="${BACKEND_PYTHON:-python3.11}"
+          if ! command -v "$PY_BIN" >/dev/null 2>&1; then
+            PY_BIN=python3
+          fi
+          rm -rf .venv
+          "$PY_BIN" -m venv .venv
           source .venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
+          .venv/bin/uvicorn --version
 
       - name: Disparar deploy backend (uvicorn/service)
         env:

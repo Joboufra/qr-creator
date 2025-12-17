@@ -42,7 +42,7 @@ jobs:
           QR_API_KEY=${{ secrets.QR_API_KEY }}
           QR_RATE_LIMIT=${{ vars.QR_RATE_LIMIT || '60' }}
           QR_RATE_WINDOW=${{ vars.QR_RATE_WINDOW || '60' }}
-          NEXT_PUBLIC_API_BASE=${{ vars.NEXT_PUBLIC_API_BASE }}
+          NEXT_PUBLIC_API_BASE=${{ secrets.NEXT_PUBLIC_API_BASE }}
           EOF
 
       - name: Smoke check backend
@@ -55,10 +55,10 @@ jobs:
 
       - name: Disparar deploy backend
         env:
-          BACKEND_DEPLOY_FLAG_PATH: ${{ vars.BACKEND_DEPLOY_FLAG_PATH }}
+          BACKEND_DEPLOY_FLAG_PATH: ${{ secrets.BACKEND_DEPLOY_FLAG_PATH }}
         run: |
           if [ -z "$BACKEND_DEPLOY_FLAG_PATH" ]; then
-            echo "Falta definir vars.BACKEND_DEPLOY_FLAG_PATH" >&2
+            echo "Falta definir secrets.BACKEND_DEPLOY_FLAG_PATH" >&2
             exit 1
           fi
           touch "$BACKEND_DEPLOY_FLAG_PATH"
@@ -87,16 +87,16 @@ jobs:
       - name: Hacer build frontend
         working-directory: frontend
         env:
-          NEXT_PUBLIC_API_BASE: ${{ vars.NEXT_PUBLIC_API_BASE }}
+          NEXT_PUBLIC_API_BASE: ${{ secrets.NEXT_PUBLIC_API_BASE }}
           NEXT_PUBLIC_API_KEY: ${{ secrets.NEXT_PUBLIC_API_KEY }}
         run: npm run build --if-present
 
       - name: Volver a desplegar frontend
         env:
-          FRONTEND_PM2_APP: ${{ vars.FRONTEND_PM2_APP }}
+          FRONTEND_PM2_APP: ${{ secrets.FRONTEND_PM2_APP }}
         run: |
           if [ -z "$FRONTEND_PM2_APP" ]; then
-            echo "Falta definir vars.FRONTEND_PM2_APP" >&2
+            echo "Falta definir secrets.FRONTEND_PM2_APP" >&2
             exit 1
           fi
           pm2 reload "$FRONTEND_PM2_APP"

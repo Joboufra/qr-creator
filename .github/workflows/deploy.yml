@@ -54,6 +54,8 @@ jobs:
           mkdir -p "$DEPLOY_DIR"
           rsync -avh --delete \
             --exclude '.venv/' \
+            --exclude '.env' \
+            --exclude '.env.frontend' \
             "$GITHUB_WORKSPACE"/ "$DEPLOY_DIR"/
 
       - name: Escribir .env backend en deploy
@@ -150,6 +152,8 @@ jobs:
           mkdir -p "$DEPLOY_DIR"
           rsync -avh --delete \
             --exclude '.venv/' \
+            --exclude '.env' \
+            --exclude '.env.frontend' \
             "$GITHUB_WORKSPACE"/ "$DEPLOY_DIR"/
 
       - name: Escribir .env.frontend para pm2

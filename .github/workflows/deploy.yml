@@ -42,6 +42,9 @@ jobs:
           QR_RATE_LIMIT=${{ vars.QR_RATE_LIMIT || '60' }}
           QR_RATE_WINDOW=${{ vars.QR_RATE_WINDOW || '60' }}
           NEXT_PUBLIC_API_BASE=${{ secrets.NEXT_PUBLIC_API_BASE }}
+          UVICORN_HOST=${{ vars.UVICORN_HOST || '0.0.0.0' }}
+          UVICORN_PORT=${{ vars.UVICORN_PORT || '8000' }}
+          UVICORN_WORKERS=${{ vars.UVICORN_WORKERS || '2' }}
           EOF
 
       - name: Smoke check backend
@@ -61,16 +64,38 @@ jobs:
             exit 1
           fi
           mkdir -p "$DEPLOY_DIR"
-          rsync -avh --delete "$GITHUB_WORKSPACE"/ "$DEPLOY_DIR"/
+          rsync -avh --delete \
+            --exclude '.venv/' \
+            "$GITHUB_WORKSPACE"/ "$DEPLOY_DIR"/
 
-      - name: Disparar deploy backend
+      - name: Instalar deps en deploy (backend)
         env:
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+        run: |
+          if [ -z "$DEPLOY_DIR" ]; then
+            echo "Falta definir secrets.DEPLOY_DIR" >&2
+            exit 1
+          fi
+          cd "$DEPLOY_DIR"
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Disparar deploy backend (uvicorn/service)
+        env:
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
           BACKEND_DEPLOY_FLAG_PATH: ${{ secrets.BACKEND_DEPLOY_FLAG_PATH }}
         run: |
+          if [ -z "$DEPLOY_DIR" ]; then
+            echo "Falta definir secrets.DEPLOY_DIR" >&2
+            exit 1
+          fi
           if [ -z "$BACKEND_DEPLOY_FLAG_PATH" ]; then
             echo "Falta definir secrets.BACKEND_DEPLOY_FLAG_PATH" >&2
             exit 1
           fi
+          # Señal externa para reiniciar el servicio uvicorn (systemd/supervisor/inotify)
           touch "$BACKEND_DEPLOY_FLAG_PATH"
 
   frontend:
@@ -110,14 +135,22 @@ jobs:
             exit 1
           fi
           mkdir -p "$DEPLOY_DIR"
-          rsync -avh --delete "$GITHUB_WORKSPACE"/ "$DEPLOY_DIR"/
+          rsync -avh --delete \
+            --exclude '.venv/' \
+            "$GITHUB_WORKSPACE"/ "$DEPLOY_DIR"/
 
       - name: Volver a desplegar frontend
         env:
           FRONTEND_PM2_APP: ${{ secrets.FRONTEND_PM2_APP }}
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
         run: |
           if [ -z "$FRONTEND_PM2_APP" ]; then
             echo "Falta definir secrets.FRONTEND_PM2_APP" >&2
             exit 1
           fi
+          if [ -z "$DEPLOY_DIR" ]; then
+            echo "Falta definir secrets.DEPLOY_DIR" >&2
+            exit 1
+          fi
+          cd "$DEPLOY_DIR"
           pm2 reload "$FRONTEND_PM2_APP"

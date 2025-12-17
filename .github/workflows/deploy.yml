@@ -80,15 +80,17 @@ jobs:
       - name: Instalar deps en deploy (backend)
         env:
           DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+          BACKEND_PYTHON: ${{ secrets.BACKEND_PYTHON || vars.BACKEND_PYTHON || '/usr/bin/python3.11' }}
         run: |
           if [ -z "$DEPLOY_DIR" ]; then
             echo "Falta definir secrets.DEPLOY_DIR" >&2
             exit 1
           fi
           cd "$DEPLOY_DIR"
-          PY_BIN="${BACKEND_PYTHON:-python3.11}"
-          if ! command -v "$PY_BIN" >/dev/null 2>&1; then
-            PY_BIN=python3
+          PY_BIN="$BACKEND_PYTHON"
+          if [ ! -x "$PY_BIN" ]; then
+            echo "Python definido no existe: $PY_BIN" >&2
+            exit 1
           fi
           rm -rf .venv
           "$PY_BIN" -m venv .venv

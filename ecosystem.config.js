@@ -6,7 +6,7 @@ module.exports = {
       args: "start",
       cwd: `${__dirname}/frontend`,
       interpreter: "none",
-      env_file: ".env.frontend",
+      env_file: `${__dirname}/.env.frontend`,
       env: {
         NODE_ENV: "production",
       },

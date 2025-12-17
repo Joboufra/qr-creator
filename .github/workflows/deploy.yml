@@ -149,9 +149,7 @@ jobs:
             exit 1
           fi
           mkdir -p "$DEPLOY_DIR"
-          cat <<'EOF' > "$DEPLOY_DIR/.env.frontend"
-          PORT=${FRONTEND_PORT}
-          EOF
+          echo "PORT=${FRONTEND_PORT}" > "$DEPLOY_DIR/.env.frontend"
 
       - name: Volver a desplegar frontend
         env:
@@ -167,4 +165,4 @@ jobs:
             exit 1
           fi
           cd "$DEPLOY_DIR"
-          pm2 reload "$FRONTEND_PM2_APP"
+          pm2 reload "$FRONTEND_PM2_APP" --update-env

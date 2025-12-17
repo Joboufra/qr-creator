@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "QR Creator",
-  description: "Genera códigos QR desde FastAPI + Next.js",
+  description: "Genera tus códigos QR",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

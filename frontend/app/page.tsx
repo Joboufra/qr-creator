@@ -67,7 +67,7 @@ export default function Page() {
   const [data, setData] = useState("");
   const [dataError, setDataError] = useState(false);
   const [format, setFormat] = useState<Format>("png");
-  const [level, setLevel] = useState<Level>("M");
+  const [level, setLevel] = useState<Level>("H");
   const [boxSize, setBoxSize] = useState(10);
   const [border, setBorder] = useState(4);
   const [fillColor, setFillColor] = useState("#7c3aed");

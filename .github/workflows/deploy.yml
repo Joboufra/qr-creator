@@ -155,6 +155,7 @@ jobs:
         env:
           FRONTEND_PM2_APP: ${{ secrets.FRONTEND_PM2_APP }}
           DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+          FRONTEND_PORT: ${{ vars.FRONTEND_PORT || '4000' }}
         run: |
           if [ -z "$FRONTEND_PM2_APP" ]; then
             echo "Falta definir secrets.FRONTEND_PM2_APP" >&2
@@ -165,4 +166,4 @@ jobs:
             exit 1
           fi
           cd "$DEPLOY_DIR"
-          pm2 reload "$FRONTEND_PM2_APP" --update-env
+          PORT="$FRONTEND_PORT" pm2 startOrReload ecosystem.config.js --only "$FRONTEND_PM2_APP" --update-env

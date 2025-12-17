@@ -9,6 +9,7 @@ module.exports = {
       env_file: `${__dirname}/.env.frontend`,
       env: {
         NODE_ENV: "production",
+        PORT: "3200",
       },
       autorestart: true,
       max_restarts: 5,

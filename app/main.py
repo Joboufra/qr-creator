@@ -7,10 +7,13 @@ from collections import defaultdict, deque
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
 from app.routers.qr import router as qr_router
 
-app = FastAPI(title="QR Creator", version="0.1.0")
+load_dotenv()
+
+app = FastAPI(title="QR Creator", version="0.1.0", docs_url="/swagger", redoc_url="/docs")
 
 app.add_middleware(
     CORSMiddleware,
@@ -19,7 +22,7 @@ app.add_middleware(
         "http://127.0.0.1:3000",
     ],
     allow_credentials=True,
-    allow_methods=["GET"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 

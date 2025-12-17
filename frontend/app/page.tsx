@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Format = "png" | "svg";
 type Level = "L" | "M" | "Q" | "H";
-type Style = "square" | "dots";
+type Style = "square" | "dots" | "rounded" | "gapped" | "bars-vertical" | "bars-horizontal";
+type EyeStyle = "auto" | "square" | "rounded" | "dots" | "gapped" | "bars-vertical" | "bars-horizontal";
+type FillMode = "solid" | "gradient";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY;
@@ -13,11 +15,27 @@ const levels: Record<Level, string> = {
   L: "Bajo",
   M: "Medio",
   Q: "Alto",
-  H: "Máximo",
+  H: "Maximo",
 };
 
-const swatches = ["#ef4444", "#f97316", "#facc15", "#06b6d4", "#a855f7"];
-const bgSwatches = ["#ffffff", "#e2e8f0", "#f5f5f5", "#0f172a", "#0b0f1a"];
+const swatches = ["#6366f1", "#7c3aed", "#38bdf8", "#22d3ee", "#14b8a6", "#10b981", "#f59e0b", "#ef4444"];
+const bgSwatches = ["#0b0f1a", "#0f172a", "#e2e8f0", "#c4d6ed", "#c2c2c2"];
+const styleOptions: { value: Style; label: string }[] = [
+  { value: "square", label: "Cuadrado" },
+  { value: "dots", label: "Punteado" },
+  { value: "rounded", label: "Redondeado" },
+  { value: "gapped", label: "Separado" },
+  { value: "bars-vertical", label: "Barras verticales" },
+  { value: "bars-horizontal", label: "Barras horizontales" },
+];
+const eyeStyleOptions: { value: EyeStyle; label: string }[] = [
+  { value: "square", label: "Predeterminado (cuadrado)" },
+  { value: "rounded", label: "Redondeado" },
+  { value: "dots", label: "Punteado" },
+  { value: "gapped", label: "Separado" },
+  { value: "bars-vertical", label: "Barras verticales" },
+  { value: "bars-horizontal", label: "Barras horizontales" },
+];
 
 function InfoHint({ text }: { text: string }) {
   return (
@@ -38,7 +56,7 @@ function InfoHint({ text }: { text: string }) {
           d="M12 9.75v4.5m0-7.5h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
         />
       </svg>
-      <span className="pointer-events-none absolute left-1/2 top-[-6px] z-10 w-52 -translate-x-1/2 -translate-y-full rounded-lg border border-white/15 bg-[#130a0f]/95 px-3 py-2 text-[11px] text-white opacity-0 shadow-[0_12px_40px_rgba(0,0,0,0.3)] backdrop-blur transition duration-200 group-hover:opacity-100">
+      <span className="pointer-events-none absolute left-1/2 top-[-6px] z-50 w-52 -translate-x-1/2 -translate-y-full rounded-lg border border-white/15 bg-[#130a0f]/95 px-3 py-2 text-[11px] text-white opacity-0 shadow-[0_12px_40px_rgba(0,0,0,0.3)] backdrop-blur transition duration-200 group-hover:opacity-100">
         {text}
       </span>
     </span>
@@ -46,22 +64,27 @@ function InfoHint({ text }: { text: string }) {
 }
 
 export default function Page() {
-  const [data, setData] = useState("Texto de ejemplo o URL");
+  const [data, setData] = useState("");
+  const [dataError, setDataError] = useState(false);
   const [format, setFormat] = useState<Format>("png");
   const [level, setLevel] = useState<Level>("M");
   const [boxSize, setBoxSize] = useState(10);
-  const [border, setBorder] = useState(2);
-  const [fillColor, setFillColor] = useState("#ef4444");
-  const [backColor, setBackColor] = useState("#ffffff");
-  const [style, setStyle] = useState<Style>("square");
+  const [border, setBorder] = useState(4);
+  const [fillColor, setFillColor] = useState("#7c3aed");
+  const [backColor, setBackColor] = useState("#0b0f1a");
+  const [style, setStyle] = useState<Style>("gapped");
+  const [eyeStyle, setEyeStyle] = useState<EyeStyle>("square");
+  const [eyeColor, setEyeColor] = useState("#38bdf8");
+  const [fillMode, setFillMode] = useState<FillMode>("solid");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [gradientTo, setGradientTo] = useState("#f97316");
   const isSvg = format === "svg";
   const effectiveStyle: Style = isSvg ? "square" : style;
 
   const controlBase =
-    "w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-accent/60 shadow-[0_10px_40px_-30px_rgba(0,0,0,1)]";
+    "w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-sky-400/70 focus:border-sky-400/70 shadow-[0_10px_40px_-30px_rgba(0,0,0,1)]";
   const selectBase =
     controlBase +
     " appearance-none pr-10 bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpath fill='%23f7f2f3' d='M5 7l5 6 5-6z'/%3E%3C/svg%3E\")] bg-[length:18px_18px] bg-[right_12px_center] bg-no-repeat";
@@ -72,31 +95,50 @@ export default function Page() {
     };
   }, [previewUrl]);
 
-  const params = useMemo(() => {
-    const p = new URLSearchParams({
+  const apiBackColor = backColor;
+
+  const payload = useMemo(() => {
+    const base: Record<string, string | number | null> = {
       data,
       format,
       error_correction: level,
-      box_size: String(boxSize),
-      border: String(border),
+      box_size: boxSize,
+      border,
       fill_color: fillColor,
-      back_color: backColor,
+      back_color: apiBackColor,
       style: effectiveStyle,
-    });
-    return p.toString();
-  }, [data, format, level, boxSize, border, fillColor, backColor, effectiveStyle]);
+      fill_mode: isSvg ? "solid" : fillMode,
+    };
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+    if (!isSvg) {
+      base.eye_style = eyeStyle;
+      base.eye_color = eyeColor;
+      if (fillMode === "gradient") {
+        base.fill_color_to = gradientTo;
+      }
+    }
+
+    return base;
+  }, [data, format, level, boxSize, border, fillColor, apiBackColor, effectiveStyle, eyeStyle, eyeColor, isSvg, fillMode, gradientTo]);
+
+  const generateQr = useCallback(async () => {
+    const trimmed = data.trim();
+    if (!trimmed) {
+      setError("Introduce un texto o URL antes de generar el QR.");
+      setDataError(true);
+      return;
+    }
+
     setError(null);
+    setDataError(false);
     setLoading(true);
 
     try {
-      const url = `${API_BASE}/api/qr?${params}`;
-      const headers: Record<string, string> = {};
+      const url = `${API_BASE}/api/qr`;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (API_KEY) headers["X-API-Key"] = API_KEY;
 
-      const res = await fetch(url, { headers });
+      const res = await fetch(url, { method: "POST", headers, cache: "no-store", body: JSON.stringify(payload) });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         throw new Error(body?.detail ?? `Error HTTP ${res.status}`);
@@ -111,10 +153,15 @@ export default function Page() {
     } finally {
       setLoading(false);
     }
+  }, [API_BASE, API_KEY, payload, data]);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    await generateQr();
   }
 
   return (
-    <main className="max-w-5xl mx-auto px-6 py-10 space-y-8 min-h-screen lg:overflow-visible">
+    <main className="max-w-7xl mx-auto px-6 py-10 space-y-6 min-h-screen lg:overflow-visible">
       <header className="space-y-3">
         <p className="text-xs uppercase tracking-[0.35em] text-zinc-400">Joboufra: QR Creator</p>
         <h1 className="text-4xl sm:text-5xl font-semibold font-display bg-gradient-to-r from-white via-rose-200 to-orange-200 bg-clip-text text-transparent drop-shadow-[0_6px_40px_rgba(239,68,68,0.25)]">
@@ -123,173 +170,310 @@ export default function Page() {
         <p className="text-zinc-300 max-w-2xl">Ajusta formato, estilo y colores para crear tu QR al vuelo.</p>
       </header>
 
-      <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-6">
-        <form
-          onSubmit={handleSubmit}
-          className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur px-6 py-7 space-y-5 shadow-[0_20px_80px_-40px_rgba(0,0,0,1)]"
-        >
-          <div className="space-y-2">
-            <label htmlFor="data" className="text-sm text-zinc-300">
-              Texto o URL <InfoHint text="Contenido a codificar; acepta texto, URL o cualquier string corto." />
-            </label>
-            <input
-              id="data"
-              name="data"
-              value={data}
-              onChange={(e) => setData(e.target.value)}
-              required
-              className={controlBase}
-              placeholder="Texto de ejemplo o URL"
-            />
+      <div className="grid xl:grid-cols-3 gap-6 items-start">
+        <form onSubmit={handleSubmit} className="xl:col-span-2 grid lg:grid-cols-2 gap-6">
+          <div className="relative z-20 rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur px-6 py-7 space-y-5 shadow-[0_20px_80px_-40px_rgba(0,0,0,1)]">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Config. básica</p>
+              <p className="text-xs text-zinc-400">Datos y formato</p>
+            </div>
+
+            <div className="space-y-5 mt-2">
+              <div className="space-y-2">
+                <label htmlFor="data" className="text-sm text-zinc-300">
+                  Texto o URL <InfoHint text="Contenido a codificar; acepta texto, URL o cualquier string corto." />
+                </label>
+                <input
+                  id="data"
+                  name="data"
+                  value={data}
+                  onChange={(e) => {
+                    setData(e.target.value);
+                    if (dataError) setDataError(false);
+                    if (error) setError(null);
+                  }}
+                  required
+                  className={`${controlBase} ${dataError ? "border-red-400/70 ring-1 ring-red-400/40" : ""}`}
+                  placeholder="Texto de ejemplo o URL"
+                />
+                {dataError ? <p className="text-xs text-red-300">Este campo es obligatorio.</p> : null}
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="format" className="text-sm text-zinc-300">
+                    Formato <InfoHint text="SVG es vectorial y no acepta colores custom. PNG acepta estilos y colores." />
+                  </label>
+                  <select
+                    id="format"
+                    value={format}
+                    onChange={(e) => setFormat(e.target.value as Format)}
+                    className={selectBase}
+                  >
+                    <option value="png">PNG</option>
+                    <option value="svg">SVG</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="level" className="text-sm text-zinc-300">
+                    Correccion de error <InfoHint text="Mayor nivel hace el QR mas robusto a danos pero mas denso." />
+                  </label>
+                  <select
+                    id="level"
+                    value={level}
+                    onChange={(e) => setLevel(e.target.value as Level)}
+                    className={selectBase}
+                  >
+                    {Object.entries(levels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="boxSize" className="text-sm text-zinc-300">
+                    Tamano píxeles <InfoHint text="Escala el tamano de cada pixel del QR en la imagen final." />
+                  </label>
+                  <input
+                    id="boxSize"
+                    type="number"
+                    min={1}
+                    max={32}
+                    value={boxSize}
+                    onChange={(e) => setBoxSize(Number(e.target.value))}
+                    className={controlBase}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="border" className="text-sm text-zinc-300">
+                    Borde (en píxeles) <InfoHint text="Margen alrededor del QR; 4 es el estandar." />
+                  </label>
+                  <input
+                    id="border"
+                    type="number"
+                    min={0}
+                    max={10}
+                    value={border}
+                    onChange={(e) => setBorder(Number(e.target.value))}
+                    className={controlBase}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="style" className="text-sm text-zinc-300">
+                  Estilo del cuerpo del QR
+                  <InfoHint text="Estilos extra (dots, rounded, gapped, barras) solo en PNG; SVG queda cuadrado." />
+                </label>
+                <select
+                  id="style"
+                  value={effectiveStyle}
+                  onChange={(e) => setStyle(e.target.value as Style)}
+                  className={`${selectBase} ${isSvg ? "opacity-60 cursor-not-allowed" : ""}`}
+                  disabled={isSvg}
+                >
+                  {styleOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="eyeStyle" className="text-sm text-zinc-300">
+                  Estilo de localizadores
+                  <InfoHint text="Cuadrados, redondeados, punteados, separados o barras (PNG)." />
+                </label>
+                <select
+                  id="eyeStyle"
+                  value={eyeStyle}
+                  onChange={(e) => setEyeStyle(e.target.value as EyeStyle)}
+                  className={`${selectBase} ${isSvg ? "opacity-60 cursor-not-allowed" : ""}`}
+                  disabled={isSvg}
+                >
+                  {eyeStyleOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label htmlFor="format" className="text-sm text-zinc-300">
-                Formato <InfoHint text="SVG es vectorial y acepta colores; el estilo punteado solo aplica a PNG." />
-              </label>
-              <select
-                id="format"
-                value={format}
-                onChange={(e) => setFormat(e.target.value as Format)}
-                className={selectBase}
-              >
-                <option value="png">PNG</option>
-                <option value="svg">SVG</option>
-              </select>
+          <div className="relative z-10 rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur px-6 py-7 space-y-5 shadow-[0_20px_80px_-40px_rgba(0,0,0,1)]">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Colores y fondo</p>
+              <p className="text-xs text-zinc-400">Diseño</p>
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="level" className="text-sm text-zinc-300">
-                Corrección de error <InfoHint text="Mayor nivel hace el QR más robusto a daños pero más denso." />
-              </label>
-              <select
-                id="level"
-                value={level}
-                onChange={(e) => setLevel(e.target.value as Level)}
-                className={selectBase}
-              >
-                {Object.entries(levels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label htmlFor="boxSize" className="text-sm text-zinc-300">
-                Tamaño del módulo <InfoHint text="Escala el tamaño de cada píxel del QR en la imagen final." />
-              </label>
-              <input
-                id="boxSize"
-                type="number"
-                min={1}
-                max={32}
-                value={boxSize}
-                onChange={(e) => setBoxSize(Number(e.target.value))}
-                className={controlBase}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="border" className="text-sm text-zinc-300">
-                Borde (módulos) <InfoHint text="Margen alrededor del QR; 4 es el estándar." />
-              </label>
-              <input
-                id="border"
-                type="number"
-                min={0}
-                max={10}
-                value={border}
-                onChange={(e) => setBorder(Number(e.target.value))}
-                className={controlBase}
-              />
-            </div>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label htmlFor="style" className="text-sm text-zinc-300">
-                Estilo del QR<InfoHint text="Cuadrado clásico o punteado circular (solo PNG)." />
-              </label>
-              <select
-                id="style"
-                value={effectiveStyle}
-                onChange={(e) => setStyle(e.target.value as Style)}
-                className={`${selectBase} ${isSvg ? "opacity-60 cursor-not-allowed" : ""}`}
-                disabled={isSvg}
-              >
-                <option value="square">Cuadrado</option>
-                <option value="dots">Punteado</option>
-              </select>
-            </div>
-            <div className="space-y-2">
+            <div className="space-y-2 mt-2">
               <label htmlFor="fillColor" className="text-sm text-zinc-300">
-                Color QR <InfoHint text="Color de los módulos del QR; usa hex o el selector rápido." />
+                Color del cuerpo
+                <InfoHint text="Elige solido o degradado vertical (PNG)." />
               </label>
-              <input
-                id="fillColor"
-                type="color"
-                value={fillColor}
-                onChange={(e) => setFillColor(e.target.value)}
-                className="w-full h-11 rounded-xl border border-white/10 bg-transparent"
-                style={{ backgroundColor: fillColor }}
-              />
-              <div className="flex flex-wrap gap-2">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFillMode("solid")}
+                  className={`rounded-lg px-3 py-2 text-sm border transition ${
+                    fillMode === "solid"
+                      ? "border-sky-400/70 bg-sky-500/30 text-white"
+                      : "border-white/10 bg-white/5 text-white/80 hover:border-sky-300/40 hover:bg-sky-400/10"
+                  } ${isSvg ? "opacity-60 cursor-not-allowed" : ""}`}
+                  disabled={isSvg}
+                >
+                  Solido
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFillMode("gradient")}
+                  className={`rounded-lg px-3 py-2 text-sm border transition ${
+                    fillMode === "gradient"
+                      ? "border-sky-400/70 bg-sky-500/30 text-white"
+                      : "border-white/10 bg-white/5 text-white/80 hover:border-sky-300/40 hover:bg-sky-400/10"
+                  } ${isSvg ? "opacity-60 cursor-not-allowed" : ""}`}
+                  disabled={isSvg}
+                >
+                  Degradado
+                </button>
+              </div>
+              {fillMode === "gradient" ? (
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <span className="text-xs text-zinc-400">Desde</span>
+                    <input
+                      id="fillColor"
+                      type="color"
+                      value={fillColor}
+                      onChange={(e) => setFillColor(e.target.value)}
+                      className={`w-full h-11 rounded-xl border border-white/10 bg-transparent ${isSvg ? "opacity-50 cursor-not-allowed" : ""}`}
+                      style={{ backgroundColor: fillColor }}
+                      disabled={isSvg}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <span className="text-xs text-zinc-400">Hasta</span>
+                    <input
+                      id="fillColorTo"
+                      type="color"
+                      value={gradientTo}
+                      onChange={(e) => setGradientTo(e.target.value)}
+                      className="w-full h-11 rounded-xl border border-white/10 bg-transparent"
+                      style={{ backgroundColor: gradientTo }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <input
+                    id="fillColor"
+                    type="color"
+                    value={fillColor}
+                    onChange={(e) => setFillColor(e.target.value)}
+                    className={`w-full h-11 rounded-xl border border-white/10 bg-transparent ${isSvg ? "opacity-50 cursor-not-allowed" : ""}`}
+                    style={{ backgroundColor: fillColor }}
+                    disabled={isSvg}
+                  />
+                </div>
+              )}
+              {fillMode === "solid" ? (
+                <div className="flex flex-wrap gap-2.5 justify-center pt-1">
+                  {swatches.map((color) => (
+                    <button
+                      type="button"
+                      key={color}
+                      onClick={() => setFillColor(color)}
+                      aria-label={`Color ${color}`}
+                      className={`h-8 w-8 rounded-full border border-white/30 transition ${isSvg ? "opacity-40 cursor-not-allowed" : "hover:scale-105"}`}
+                      style={{ backgroundColor: color }}
+                      disabled={isSvg}
+                    />
+                  ))}
+                </div>
+              ) : null}
+              {fillMode === "gradient" ? (
+                <p className="text-xs text-zinc-400">El degradado se aplica verticalmente sobre el cuerpo del QR.</p>
+              ) : null}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="eyeColor" className="text-sm text-zinc-300">
+                Color de localizadores
+                <InfoHint text="Aplica color propio a los localizadores (PNG). Usa 'Igual que QR' para sincronizar." />
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="eyeColor"
+                  type="color"
+                  value={eyeColor}
+                  onChange={(e) => setEyeColor(e.target.value)}
+                  className={`w-full h-11 rounded-xl border border-white/10 bg-transparent ${isSvg ? "opacity-50 cursor-not-allowed" : ""}`}
+                  style={{ backgroundColor: eyeColor }}
+                  disabled={isSvg}
+                />
+                <button
+                  type="button"
+                  onClick={() => setEyeColor(fillColor)}
+                  className="shrink-0 rounded-lg border border-white/10 px-3 text-xs text-white/80 transition hover:border-white/25 disabled:opacity-50"
+                  disabled={isSvg}
+                >
+                  Igual que QR
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2.5 justify-center pt-1">
                 {swatches.map((color) => (
                   <button
                     type="button"
                     key={color}
-                    onClick={() => setFillColor(color)}
-                    aria-label={`Color ${color}`}
-                    className="h-8 w-8 rounded-full border border-white/30 transition hover:scale-105"
+                    onClick={() => setEyeColor(color)}
+                    aria-label={`Color localizadores ${color}`}
+                    className={`h-8 w-8 rounded-full border border-white/30 transition ${isSvg ? "opacity-40 cursor-not-allowed" : "hover:scale-105"}`}
                     style={{ backgroundColor: color }}
+                    disabled={isSvg}
                   />
                 ))}
               </div>
             </div>
+
             <div className="space-y-2">
               <label htmlFor="backColor" className="text-sm text-zinc-300">
-                Fondo <InfoHint text="Color de fondo del QR; evita bajo contraste con el color QR." />
+                Fondo del QR <InfoHint text="Color plano detras del QR. SVG siempre usa fondo solido." />
               </label>
               <input
                 id="backColor"
                 type="color"
                 value={backColor}
                 onChange={(e) => setBackColor(e.target.value)}
-                className="w-full h-11 rounded-xl border border-white/10 bg-transparent"
+                className={`w-full h-11 rounded-xl border border-white/10 bg-transparent ${isSvg ? "opacity-50 cursor-not-allowed" : ""}`}
                 style={{ backgroundColor: backColor }}
+                disabled={isSvg}
               />
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2.5 justify-center pt-1">
                 {bgSwatches.map((color) => (
                   <button
                     type="button"
                     key={color}
                     onClick={() => setBackColor(color)}
                     aria-label={`Fondo ${color}`}
-                    className="h-8 w-8 rounded-full border border-white/30 transition hover:scale-105"
+                    className={`h-8 w-8 rounded-full border border-white/30 transition ${isSvg ? "opacity-40 cursor-not-allowed" : "hover:scale-105"}`}
                     style={{ backgroundColor: color }}
+                    disabled={isSvg}
                   />
                 ))}
               </div>
             </div>
           </div>
-
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3 font-semibold text-white transition hover:translate-y-[-1px] hover:shadow-[0_14px_34px_rgba(239,68,68,0.25)] active:scale-[0.99] disabled:opacity-70"
-          >
-            {loading ? "Generando..." : "Generar QR"}
-          </button>
         </form>
 
-        <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-transparent px-5 py-6 flex flex-col gap-4 shadow-[0_20px_80px_-40px_rgba(0,0,0,1)]">
+        <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-transparent px-5 py-6 flex flex-col gap-4 shadow-[0_20px_80px_-40px_rgba(0,0,0,1)] self-start">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Previsualizacion</p>
@@ -299,7 +483,7 @@ export default function Page() {
               <a
                 href={previewUrl}
                 download={`qr.${format}`}
-                className="inline-flex items-center gap-2 rounded-lg bg-accent/90 px-3 py-2 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(239,68,68,0.35)] transition hover:translate-y-[-1px] hover:bg-accent"
+                className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(0,0,0,0.35)] transition hover:border-white/25 hover:bg-white/15"
               >
                 <svg
                   aria-hidden="true"
@@ -320,7 +504,9 @@ export default function Page() {
             ) : null}
           </div>
 
-          <div className="flex-1 grid place-items-center rounded-xl border border-dashed border-white/15 bg-[radial-gradient(circle_at_20%_20%,rgba(239,68,68,0.07),transparent_40%),rgba(255,255,255,0.03)] min-h-[280px] p-4 transition">
+          {error ? <p className="text-sm text-rose-200">{error}</p> : null}
+
+          <div className="flex-1 grid place-items-center rounded-xl border border-dashed border-white/15 min-h-[280px] p-4 transition bg-[radial-gradient(circle_at_20%_20%,rgba(239,68,68,0.07),transparent_40%),rgba(255,255,255,0.03)]">
             {previewUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -335,9 +521,19 @@ export default function Page() {
               </div>
             )}
           </div>
+
+          <button
+            type="button"
+            onClick={generateQr}
+            disabled={loading}
+            className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700 hover:translate-y-[-1px] hover:shadow-[0_12px_30px_rgba(37,99,235,0.28)] active:scale-[0.99] disabled:opacity-70"
+          >
+            {loading ? "Generando..." : "Generar QR"}
+          </button>
         </div>
       </div>
-      <footer className="pt-12 text-center text-sm text-zinc-500 space-y-4">
+
+      <footer className="pt-6 text-center text-sm text-zinc-500 space-y-3">
         <div className="flex items-center justify-center gap-4 text-xs text-zinc-400">
           <a
             href="https://github.com/joboufra"

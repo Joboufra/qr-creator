@@ -10,6 +10,7 @@ type FillMode = "solid" | "gradient";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY;
+const MAX_BOX_SIZE = 32;
 
 const levels: Record<Level, string> = {
   L: "Bajo",
@@ -36,6 +37,10 @@ const eyeStyleOptions: { value: EyeStyle; label: string }[] = [
   { value: "bars-vertical", label: "Barras verticales" },
   { value: "bars-horizontal", label: "Barras horizontales" },
 ];
+
+function clampInteger(value: number, min: number, max: number) {
+  return Math.min(Math.max(Math.trunc(value), min), max);
+}
 
 function InfoHint({ text }: { text: string }) {
   return (
@@ -82,6 +87,7 @@ export default function Page() {
   const [gradientTo, setGradientTo] = useState("#f97316");
   const isSvg = format === "svg";
   const effectiveStyle: Style = isSvg ? "square" : style;
+  const sanitizedBoxSize = clampInteger(boxSize, 1, MAX_BOX_SIZE);
 
   const controlBase =
     "w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-sky-400/70 focus:border-sky-400/70 shadow-[0_10px_40px_-30px_rgba(0,0,0,1)]";
@@ -102,7 +108,7 @@ export default function Page() {
       data,
       format,
       error_correction: level,
-      box_size: boxSize,
+      box_size: sanitizedBoxSize,
       border,
       fill_color: fillColor,
       back_color: apiBackColor,
@@ -119,7 +125,7 @@ export default function Page() {
     }
 
     return base;
-  }, [data, format, level, boxSize, border, fillColor, apiBackColor, effectiveStyle, eyeStyle, eyeColor, isSvg, fillMode, gradientTo]);
+  }, [data, format, level, sanitizedBoxSize, border, fillColor, apiBackColor, effectiveStyle, eyeStyle, eyeColor, isSvg, fillMode, gradientTo]);
 
   const generateQr = useCallback(async () => {
     const trimmed = data.trim();
@@ -237,15 +243,18 @@ export default function Page() {
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label htmlFor="boxSize" className="text-sm text-zinc-300">
-                    Tamano píxeles <InfoHint text="Escala el tamano de cada pixel del QR en la imagen final." />
+                    Tamaño píxeles <InfoHint text="Escala el tamaño de cada pixel del QR en la imagen final." />
                   </label>
                   <input
                     id="boxSize"
                     type="number"
                     min={1}
-                    max={32}
-                    value={boxSize}
-                    onChange={(e) => setBoxSize(Number(e.target.value))}
+                    max={MAX_BOX_SIZE}
+                    value={sanitizedBoxSize}
+                    onChange={(e) => {
+                      const nextValue = e.target.valueAsNumber;
+                      setBoxSize(clampInteger(Number.isFinite(nextValue) ? nextValue : boxSize, 1, MAX_BOX_SIZE));
+                    }}
                     className={controlBase}
                   />
                 </div>
